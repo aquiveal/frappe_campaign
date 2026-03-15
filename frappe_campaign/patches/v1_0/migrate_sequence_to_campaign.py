@@ -1,10 +1,15 @@
 import frappe
 
 def execute():
+	# 1. Hide Email Template 'enabled' field properly
+	if frappe.db.exists("Custom Field", "Email Template-enabled"):
+		frappe.db.set_value("Custom Field", "Email Template-enabled", "hidden", 1)
+		frappe.clear_cache(doctype="Email Template")
+
 	if not frappe.db.exists("DocType", "Sequence"):
 		return
 		
-	# Migrate Sequences to Campaign
+	# 2. Migrate Sequences to Campaign
 	sequences = frappe.get_all("Sequence", fields=["*"])
 	
 	for seq in sequences:
@@ -30,7 +35,7 @@ def execute():
 					
 			campaign.insert(ignore_permissions=True)
 
-	# Migrate Sequence Contacts (if any) to Email Campaigns
+	# 3. Migrate Sequence Contacts (if any) to Email Campaigns
 	if frappe.db.exists("DocType", "Sequence Contact"):
 		seq_contacts = frappe.get_all("Sequence Contact", fields=["*"])
 		for sc in seq_contacts:
@@ -43,33 +48,37 @@ def execute():
 			if not campaign_name or not recipient:
 				continue
 				
+			# status mapping
+			status_map = {
+				"Draft": "Draft",
+				"Cold": "Scheduled",
+				"Approaching": "In Progress",
+				"Active": "In Progress",
+				"Finished": "Completed",
+				"Bounced": "Completed", # Or Unsubscribed
+				"Opted Out": "Unsubscribed"
+			}
+			
+			status_name = sc.status if sc.status else "Draft"
+			target_status = status_map.get(status_name, "Draft")
+				
 			email_camp_name = frappe.db.get_value("Email Campaign", {"campaign_name": campaign_name, "recipient": recipient}, "name")
+			
 			if not email_camp_name:
 				email_camp = frappe.new_doc("Email Campaign")
 				email_camp.campaign_name = campaign_name
 				email_camp.email_campaign_for = sc.get("reference_doctype") or "CRM Lead"
 				email_camp.recipient = recipient
 				email_camp.start_date = frappe.utils.today()
-				
-				# status mapping
-				status_map = {
-					"Draft": "",
-					"Cold": "Scheduled",
-					"Approaching": "In Progress",
-					"Active": "In Progress",
-					"Finished": "Completed",
-					"Bounced": "Completed",
-					"Opted Out": "Unsubscribed"
-				}
-				
-				status_name = sc.status if sc.status else "Draft"
-				email_camp.status = status_map.get(status_name, "")
-
+				email_camp.status = target_status
 				
 				# Don't trigger standard creation logic so it doesn't send emails immediately
 				email_camp.flags.ignore_validate = True
 				email_camp.insert(ignore_permissions=True)
 				email_camp_name = email_camp.name
+			else:
+				# Force update the status in case it was migrated incorrectly in v1
+				frappe.db.set_value("Email Campaign", email_camp_name, "status", target_status)
 				
 			# Migrate Sequence Emails to Campaign Email Schedules
 			if frappe.db.exists("DocType", "Sequence Email"):
@@ -93,7 +102,7 @@ def execute():
 					
 					if changed:
 						# If they are completed, make sure the overall status is correct
-						if email_camp_doc.status in ["", None]:
+						if email_camp_doc.status in ["Draft", "", None]:
 							all_filled = all((s.subject and s.response) for s in email_camp_doc.get("campaign_email_schedules"))
 							if all_filled:
 								email_camp_doc.status = "Scheduled"
@@ -103,3 +112,4 @@ def execute():
 						email_camp_doc.db_update()
 						for schedule in email_camp_doc.campaign_email_schedules:
 							schedule.db_update()
+
