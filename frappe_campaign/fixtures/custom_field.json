@@ -207,16 +207,5 @@
   "translatable": 0,
   "unique": 0,
   "width": null
- },
- {
-  "dt": "CRM Lead",
-  "fieldname": "email_campaigns",
-  "fieldtype": "Table",
-  "options": "CRM Lead Campaign",
-  "label": "Email Campaigns",
-  "hidden": 1,
-  "module": "Campaign",
-  "name": "CRM Lead-email_campaigns",
-  "doctype": "Custom Field"
  }
 ]
