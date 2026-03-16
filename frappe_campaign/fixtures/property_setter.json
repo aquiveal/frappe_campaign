@@ -1,0 +1,18 @@
+[
+ {
+  "default_value": null,
+  "doc_type": "Email Template",
+  "docstatus": 0,
+  "doctype": "Property Setter",
+  "doctype_or_field": "DocField",
+  "field_name": "enabled",
+  "is_system_generated": 0,
+  "modified": "2026-03-16 11:45:00.000000",
+  "module": "Campaign",
+  "name": "Email Template-enabled-hidden",
+  "property": "hidden",
+  "property_type": "Check",
+  "row_name": null,
+  "value": "1"
+ }
+]

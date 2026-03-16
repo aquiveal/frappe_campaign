@@ -246,5 +246,6 @@ require_type_annotated_api_methods = True
 # ignore_translatable_strings_from = []
 
 fixtures = [
-	{"dt": "Custom Field", "filters": [["module", "in", ["Campaign", "CRM"]]]}
+	{"dt": "Custom Field", "filters": [["module", "in", ["Campaign", "CRM"]]]},
+	{"dt": "Property Setter", "filters": [["module", "in", ["Campaign"]]]}
 ]
