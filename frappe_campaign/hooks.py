@@ -138,6 +138,11 @@ doc_events = {
 		"before_save": [
 			"frappe_campaign.utils.email_template.before_save"
 		]
+	},
+	"Email Campaign": {
+		"after_insert": "frappe_campaign.utils.crm_lead.sync_lead_campaign",
+		"on_update": "frappe_campaign.utils.crm_lead.sync_lead_campaign",
+		"on_trash": "frappe_campaign.utils.crm_lead.remove_lead_campaign"
 	}
 }
 
