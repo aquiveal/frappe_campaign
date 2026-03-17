@@ -3,12 +3,12 @@ from frappe import _
 import json
 
 @frappe.whitelist()
-def get(campaign_name=None, filters=None):
+def get(name=None, filters=None):
 	"""
 	Highly efficient endpoint for n8n to fetch all context in a single network request.
 	Returns the exact Email Campaign document structure, but with the 'recipient' 
 	field enriched to contain the full CRM Lead, Organization, and FCRM Notes.
-	Accepts either 'campaign_name' directly, or standard Frappe 'filters'.
+	Accepts either 'name' directly, or standard Frappe 'filters'.
 	"""
 	if filters:
 		if isinstance(filters, str):
@@ -17,12 +17,12 @@ def get(campaign_name=None, filters=None):
 		matched_campaigns = frappe.get_all("Email Campaign", filters=filters, pluck="name", limit=1)
 		if not matched_campaigns:
 			frappe.throw(_("Email Campaign not found matching filters"), frappe.DoesNotExistError)
-		campaign_name = matched_campaigns[0]
+		name = matched_campaigns[0]
 			
-	if not campaign_name:
-		frappe.throw(_("Please provide campaign_name or filters"), frappe.ValidationError)
+	if not name:
+		frappe.throw(_("Please provide name or filters"), frappe.ValidationError)
 		
-	campaign = frappe.get_doc("Email Campaign", campaign_name)
+	campaign = frappe.get_doc("Email Campaign", name)
 	payload = campaign.as_dict()
 	
 	if campaign.email_campaign_for == "CRM Lead":
@@ -59,12 +59,12 @@ def get(campaign_name=None, filters=None):
 	return payload
 
 @frappe.whitelist()
-def update(campaign_name, schedules):
+def update(name, schedules):
 	"""
 	API for n8n to update email schedules.
 	Only accepts updates if status is empty (needs generation).
 	"""
-	campaign = frappe.get_doc("Email Campaign", campaign_name)
+	campaign = frappe.get_doc("Email Campaign", name)
 	
 	if campaign.status not in ["", None, "Draft"]:
 		# Ignore retry requests if already generated or failed to prevent Convoy from getting stuck in a retry loop
