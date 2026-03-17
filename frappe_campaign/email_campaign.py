@@ -37,7 +37,7 @@ def get(name=None, filters=None):
 			"fcrm_notes": frappe.get_all(
 				"FCRM Note", 
 				filters={"reference_doctype": "CRM Lead", "reference_docname": campaign.recipient}, 
-				pluck="content"
+				fields=["*"]
 			),
 			"organization": None
 		}
@@ -52,7 +52,7 @@ def get(name=None, filters=None):
 				"fcrm_notes": frappe.get_all(
 					"FCRM Note", 
 					filters={"reference_doctype": "CRM Organization", "reference_docname": lead.organization}, 
-					pluck="content"
+					fields=["*"]
 				)
 			}
 			
