@@ -56,6 +56,27 @@ def get(name=None, filters=None):
 				)
 			}
 			
+	# Prepare Jinja Context
+	context = payload.copy()
+	if isinstance(payload.get("recipient"), dict):
+		context.update(payload["recipient"])
+
+	# Process Email Schedules
+	for schedule in payload.get("campaign_email_schedules", []):
+		if schedule.get("email_template"):
+			template_doc = frappe.get_doc("Email Template", schedule["email_template"])
+			template_dict = template_doc.as_dict()
+
+			# Render prompts if they exist
+			if template_dict.get("user_prompt"):
+				template_dict["user_prompt"] = frappe.render_template(template_dict["user_prompt"], context)
+			
+			if template_dict.get("system_prompt"):
+				template_dict["system_prompt"] = frappe.render_template(template_dict["system_prompt"], context)
+			
+			# Replace the string ID with the fully enriched template object
+			schedule["email_template"] = template_dict
+
 	return payload
 
 @frappe.whitelist()
