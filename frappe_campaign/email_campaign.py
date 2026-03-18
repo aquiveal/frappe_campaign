@@ -1,6 +1,7 @@
 import frappe
 from frappe import _
 import json
+from markdownify import markdownify as md
 
 @frappe.whitelist()
 def get(name=None, filters=None):
@@ -31,32 +32,25 @@ def get(name=None, filters=None):
 	if campaign.email_campaign_for == "CRM Lead":
 		lead = frappe.get_doc("CRM Lead", campaign.recipient)
 		
-		recipient_data = {
-			"name": campaign.recipient,
-			"first_name": lead.first_name,
-			"last_name": getattr(lead, "last_name", ""),
-			"email": getattr(lead, "email", ""),
-			"fcrm_notes": frappe.get_all(
-				"FCRM Note", 
-				filters={"reference_doctype": "CRM Lead", "reference_docname": campaign.recipient}, 
-				fields=["*"]
-			),
-			"organization": None
-		}
+		recipient_data = lead.as_dict()
+		recipient_data["fcrm_notes"] = frappe.get_all(
+			"FCRM Note", 
+			filters={"reference_doctype": "CRM Lead", "reference_docname": campaign.recipient}, 
+			fields=["*"]
+		)
+		recipient_data["organization"] = None
 		
 		# Organization Data
 		if getattr(lead, "organization", None):
-			org = frappe.get_doc("CRM Organization", lead.organization)
+			organizaton = frappe.get_doc("CRM Organization", lead.organization)
 			
-			recipient_data["organization"] = {
-				"name": org.name,
-				"website": getattr(org, "website", ""),
-				"fcrm_notes": frappe.get_all(
-					"FCRM Note", 
-					filters={"reference_doctype": "CRM Organization", "reference_docname": lead.organization}, 
-					fields=["*"]
-				)
-			}
+			organizaton_data = organizaton.as_dict()
+			organizaton_data["fcrm_notes"] = frappe.get_all(
+				"FCRM Note", 
+				filters={"reference_doctype": "CRM Organization", "reference_docname": lead.organization}, 
+				fields=["*"]
+			)
+			recipient_data["organization"] = organizaton_data
 			
 		context.update(recipient_data)
 		context["recipient"] = recipient_data # Keep it available via {{ recipient.first_name }} too
@@ -69,10 +63,12 @@ def get(name=None, filters=None):
 
 			# Render prompts if they exist
 			if template_dict.get("user_prompt"):
-				template_dict["user_prompt"] = frappe.render_template(template_dict["user_prompt"], context)
+				rendered_html = frappe.render_template(template_dict["user_prompt"], context)
+				template_dict["user_prompt"] = md(rendered_html).strip()
 			
 			if template_dict.get("system_prompt"):
-				template_dict["system_prompt"] = frappe.render_template(template_dict["system_prompt"], context)
+				rendered_html = frappe.render_template(template_dict["system_prompt"], context)
+				template_dict["system_prompt"] = md(rendered_html).strip()
 			
 			# Replace the string ID with the fully enriched template object
 			schedule["email_template"] = template_dict
