@@ -30,9 +30,8 @@
    "fieldname": "status",
    "fieldtype": "Select",
    "label": "Status",
-   "options": "Draft\nScheduled\nIn Progress\nCompleted\nUnsubscribed\nGeneration Failed",
-   "default": "Draft",
-   "read_only": 1
+   "options": "Draft\nScheduled\nIn Progress\nCompleted\nUnsubscribed",
+   "default": "Draft"
   },
   {
    "fieldname": "column_break_4",
