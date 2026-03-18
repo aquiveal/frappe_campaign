@@ -25,11 +25,13 @@ def get(name=None, filters=None):
 	campaign = frappe.get_doc("Email Campaign", name)
 	payload = campaign.as_dict()
 	
+	# Prepare Jinja Context (kept separate from payload so n8n only gets rendered prompts)
+	context = payload.copy()
+	
 	if campaign.email_campaign_for == "CRM Lead":
 		lead = frappe.get_doc("CRM Lead", campaign.recipient)
 		
-		# Replace the string ID with the enriched object
-		payload["recipient"] = {
+		recipient_data = {
 			"name": campaign.recipient,
 			"first_name": lead.first_name,
 			"last_name": getattr(lead, "last_name", ""),
@@ -46,7 +48,7 @@ def get(name=None, filters=None):
 		if getattr(lead, "organization", None):
 			org = frappe.get_doc("CRM Organization", lead.organization)
 			
-			payload["recipient"]["organization"] = {
+			recipient_data["organization"] = {
 				"name": org.name,
 				"website": getattr(org, "website", ""),
 				"fcrm_notes": frappe.get_all(
@@ -56,6 +58,25 @@ def get(name=None, filters=None):
 				)
 			}
 			
+		context.update(recipient_data)
+		context["recipient"] = recipient_data # Keep it available via {{ recipient.first_name }} too
+
+	# Process Email Schedules
+	for schedule in payload.get("campaign_email_schedules", []):
+		if schedule.get("email_template"):
+			template_doc = frappe.get_doc("Email Template", schedule["email_template"])
+			template_dict = template_doc.as_dict()
+
+			# Render prompts if they exist
+			if template_dict.get("user_prompt"):
+				template_dict["user_prompt"] = frappe.render_template(template_dict["user_prompt"], context)
+			
+			if template_dict.get("system_prompt"):
+				template_dict["system_prompt"] = frappe.render_template(template_dict["system_prompt"], context)
+			
+			# Replace the string ID with the fully enriched template object
+			schedule["email_template"] = template_dict
+
 	return payload
 
 @frappe.whitelist()
