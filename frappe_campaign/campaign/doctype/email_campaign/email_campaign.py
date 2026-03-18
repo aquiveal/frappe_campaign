@@ -17,8 +17,9 @@ class EmailCampaign(Document):
 		# status is handled via lifecycle methods
 
 	def set_date(self):
-		if getdate(self.start_date) < getdate(today()):
-			frappe.throw(_("Start Date cannot be before the current date"))
+		if self.is_new() or self.has_value_changed("start_date"):
+			if getdate(self.start_date) < getdate(today()):
+				frappe.throw(_("Start Date cannot be before the current date"))
 
 		# set the end date as start date + max(send after days) in campaign schedule
 		campaign = frappe.get_cached_doc("Campaign", self.campaign_name)
