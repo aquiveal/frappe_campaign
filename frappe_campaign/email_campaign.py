@@ -163,7 +163,7 @@ def get(name=None, filters=None):
 	return payload
 
 @frappe.whitelist()
-def update(name, schedules):
+def update(name, campaign_email_schedules):
 	"""
 	API for n8n to update email schedules.
 	Only accepts updates if status is empty (needs generation).
@@ -174,15 +174,23 @@ def update(name, schedules):
 		# Ignore retry requests if already generated or failed to prevent Convoy from getting stuck in a retry loop
 		return {"status": "ignored", "reason": "Campaign status is already {0}".format(campaign.status)}
 	
-	if isinstance(schedules, str):
-		schedules = json.loads(schedules)
+	if isinstance(campaign_email_schedules, str):
+		campaign_email_schedules = json.loads(campaign_email_schedules)
 		
-	for s_data in schedules:
+	# if a single dictionary is passed instead of a list, wrap it in a list
+	if isinstance(campaign_email_schedules, dict):
+		campaign_email_schedules = [campaign_email_schedules]
+		
+	for s_data in campaign_email_schedules:
 		for s in campaign.campaign_email_schedules:
-			if s.name == s_data.get("name"):
-				s.subject = s_data.get("subject")
-				s.response = s_data.get("response")
+			# match by name or by idx
+			if s.name == s_data.get("name") or (s_data.get("idx") and s.idx == int(s_data.get("idx"))):
+				# Dynamically update any field provided in the payload
+				for field_name, value in s_data.items():
+					if field_name not in ["name", "idx"]:
+						s.set(field_name, value)
 				break
 	
+	campaign.flags.ignore_validate = True
 	campaign.save(ignore_permissions=True)
 	return {"status": "success"}
