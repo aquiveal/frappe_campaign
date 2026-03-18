@@ -3,6 +3,104 @@ from frappe import _
 import json
 from markdownify import markdownify as md
 
+class LazyNotesList:
+	def __init__(self, doctype, name):
+		self.doctype = doctype
+		self.name = name
+		self._notes = None
+
+	def _load(self):
+		if self._notes is None:
+			self._notes = frappe.get_all(
+				"FCRM Note",
+				filters={"reference_doctype": self.doctype, "reference_docname": self.name},
+				fields=["*"]
+			)
+		return self._notes
+
+	def __iter__(self):
+		return iter(self._load() or [])
+
+	def __len__(self):
+		return len(self._load() or [])
+
+	def __bool__(self):
+		return bool(self._load())
+
+
+class LazyDocumentLink(str):
+	def __new__(cls, name, doctype):
+		obj = super().__new__(cls, name or "")
+		obj.doctype = doctype
+		obj.docname = name
+		obj._doc = None
+		obj._as_dict = None
+		return obj
+
+	def _load(self):
+		if self._as_dict is None:
+			if not self.docname:
+				self._as_dict = {}
+				return self._as_dict
+			try:
+				self._doc = frappe.get_doc(self.doctype, self.docname)
+				self._as_dict = self._doc.as_dict()
+			except Exception:
+				self._as_dict = {}
+		return self._as_dict
+
+	def __getattr__(self, key):
+		if key in ("doctype", "docname", "_doc", "_as_dict", "_load"):
+			return super().__getattribute__(key)
+
+		data = self._load()
+		if key in data:
+			val = data[key]
+
+			# Lazy relationships
+			if key == "organization" and val and type(val) is str:
+				lazy_val = LazyDocumentLink(val, "CRM Organization")
+				data[key] = lazy_val
+				return lazy_val
+
+			return val
+
+		if key == "fcrm_notes":
+			if "fcrm_notes" not in data:
+				data["fcrm_notes"] = LazyNotesList(self.doctype, self.docname)
+			return data["fcrm_notes"]
+
+		return None
+
+
+class LazyProp:
+	def __init__(self, doc_link, key):
+		self.doc_link = doc_link
+		self.key = key
+
+	def _val(self):
+		return getattr(self.doc_link, self.key, None)
+
+	def __str__(self):
+		val = self._val()
+		return str(val) if val is not None else ""
+
+	def __bool__(self):
+		return bool(self._val())
+
+	def __iter__(self):
+		v = self._val()
+		if not v:
+			return iter([])
+		return iter(v)
+
+	def __getattr__(self, key):
+		val = self._val()
+		if val is None:
+			return None
+		return getattr(val, key)
+
+
 @frappe.whitelist()
 def get(name=None, filters=None):
 	"""
@@ -30,30 +128,19 @@ def get(name=None, filters=None):
 	context = payload.copy()
 	
 	if campaign.email_campaign_for == "CRM Lead":
-		lead = frappe.get_doc("CRM Lead", campaign.recipient)
+		lead_link = LazyDocumentLink(campaign.recipient, "CRM Lead")
 		
-		recipient_data = lead.as_dict()
-		recipient_data["fcrm_notes"] = frappe.get_all(
-			"FCRM Note", 
-			filters={"reference_doctype": "CRM Lead", "reference_docname": campaign.recipient}, 
-			fields=["*"]
-		)
-		recipient_data["organization"] = None
-		
-		# Organization Data
-		if getattr(lead, "organization", None):
-			organizaton = frappe.get_doc("CRM Organization", lead.organization)
+		# Lazily populate the context with CRM Lead fields
+		meta = frappe.get_meta("CRM Lead")
+		for f in meta.fields:
+			context[f.fieldname] = LazyProp(lead_link, f.fieldname)
 			
-			organizaton_data = organizaton.as_dict()
-			organizaton_data["fcrm_notes"] = frappe.get_all(
-				"FCRM Note", 
-				filters={"reference_doctype": "CRM Organization", "reference_docname": lead.organization}, 
-				fields=["*"]
-			)
-			recipient_data["organization"] = organizaton_data
+		standard_fields = ["name", "owner", "creation", "modified", "modified_by"]
+		for f in standard_fields:
+			context[f] = LazyProp(lead_link, f)
 			
-		context.update(recipient_data)
-		context["recipient"] = recipient_data # Keep it available via {{ recipient.first_name }} too
+		context["fcrm_notes"] = LazyProp(lead_link, "fcrm_notes")
+		context["recipient"] = lead_link # Keep it available via {{ recipient.first_name }} too
 
 	# Process Email Schedules
 	for schedule in payload.get("campaign_email_schedules", []):
