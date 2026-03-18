@@ -8,7 +8,9 @@
   "email_template",
   "send_after_days",
   "subject",
-  "response"
+  "response",
+  "subject_apollo_id",
+  "response_apollo_id"
  ],
  "fields": [
   {
@@ -37,6 +39,16 @@
    "fieldtype": "Text Editor",
    "label": "Response",
    "depends_on": "eval:parent.doctype == 'Email Campaign'"
+  },
+  {
+   "fieldname": "subject_apollo_id",
+   "fieldtype": "Data",
+   "label": "Subject Apollo ID"
+  },
+  {
+   "fieldname": "response_apollo_id",
+   "fieldtype": "Data",
+   "label": "Response Apollo ID"
   }
  ],
  "istable": 1,
