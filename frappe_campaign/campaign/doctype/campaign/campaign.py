@@ -45,6 +45,36 @@ class Campaign(Document):
 		mc.crm_campaign = self.campaign_name
 		mc.save(ignore_permissions=True)
 
+	def on_update(self):
+		self.update_email_campaigns()
+
+	def update_email_campaigns(self):
+		email_campaigns = frappe.get_all("Email Campaign", filters={"campaign_name": self.name}, pluck="name")
+		
+		template_map = {}
+		for row in self.get("campaign_schedules"):
+			template_map[row.email_template] = {
+				"subject_apollo_id": row.subject_apollo_id,
+				"response_apollo_id": row.response_apollo_id
+			}
+			
+		for ec_name in email_campaigns:
+			ec = frappe.get_doc("Email Campaign", ec_name)
+			dirty = False
+			
+			for ec_row in ec.get("campaign_email_schedules"):
+				if ec_row.email_template in template_map:
+					data = template_map[ec_row.email_template]
+					if ec_row.subject_apollo_id != data["subject_apollo_id"]:
+						ec_row.subject_apollo_id = data["subject_apollo_id"]
+						dirty = True
+					if ec_row.response_apollo_id != data["response_apollo_id"]:
+						ec_row.response_apollo_id = data["response_apollo_id"]
+						dirty = True
+			
+			if dirty:
+				ec.save(ignore_permissions=True)
+
 	def autoname(self):
 		if frappe.defaults.get_global_default("campaign_naming_by") != "Naming Series":
 			self.name = self.campaign_name

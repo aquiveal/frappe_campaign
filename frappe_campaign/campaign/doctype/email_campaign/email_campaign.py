@@ -61,7 +61,9 @@ class EmailCampaign(Document):
 		for entry in campaign.get("campaign_schedules"):
 			self.append("campaign_email_schedules", {
 				"email_template": entry.email_template,
-				"send_after_days": entry.send_after_days
+				"send_after_days": entry.send_after_days,
+				"subject_apollo_id": entry.subject_apollo_id,
+				"response_apollo_id": entry.response_apollo_id
 			})
 		
 		# We must save after appending
