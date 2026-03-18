@@ -124,6 +124,12 @@ def get(name=None, filters=None):
 	campaign = frappe.get_doc("Email Campaign", name)
 	payload = campaign.as_dict()
 	
+	if campaign.campaign_name:
+		payload["campaign_name"] = frappe.get_doc("Campaign", campaign.campaign_name).as_dict()
+
+	if campaign.email_campaign_for and campaign.recipient:
+		payload["recipient"] = frappe.get_doc(campaign.email_campaign_for, campaign.recipient).as_dict()
+	
 	# Prepare Jinja Context (kept separate from payload so n8n only gets rendered prompts)
 	context = payload.copy()
 	
