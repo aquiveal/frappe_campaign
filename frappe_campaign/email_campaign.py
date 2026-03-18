@@ -25,11 +25,13 @@ def get(name=None, filters=None):
 	campaign = frappe.get_doc("Email Campaign", name)
 	payload = campaign.as_dict()
 	
+	# Prepare Jinja Context (kept separate from payload so n8n only gets rendered prompts)
+	context = payload.copy()
+	
 	if campaign.email_campaign_for == "CRM Lead":
 		lead = frappe.get_doc("CRM Lead", campaign.recipient)
 		
-		# Replace the string ID with the enriched object
-		payload["recipient"] = {
+		recipient_data = {
 			"name": campaign.recipient,
 			"first_name": lead.first_name,
 			"last_name": getattr(lead, "last_name", ""),
@@ -46,7 +48,7 @@ def get(name=None, filters=None):
 		if getattr(lead, "organization", None):
 			org = frappe.get_doc("CRM Organization", lead.organization)
 			
-			payload["recipient"]["organization"] = {
+			recipient_data["organization"] = {
 				"name": org.name,
 				"website": getattr(org, "website", ""),
 				"fcrm_notes": frappe.get_all(
@@ -56,10 +58,8 @@ def get(name=None, filters=None):
 				)
 			}
 			
-	# Prepare Jinja Context
-	context = payload.copy()
-	if isinstance(payload.get("recipient"), dict):
-		context.update(payload["recipient"])
+		context.update(recipient_data)
+		context["recipient"] = recipient_data # Keep it available via {{ recipient.first_name }} too
 
 	# Process Email Schedules
 	for schedule in payload.get("campaign_email_schedules", []):
