@@ -10,7 +10,9 @@
   "subject",
   "response",
   "subject_apollo_id",
-  "response_apollo_id"
+  "response_apollo_id",
+  "reference_doc",
+  "reference_docname"
  ],
  "fields": [
   {
@@ -49,6 +51,16 @@
    "fieldname": "response_apollo_id",
    "fieldtype": "Data",
    "label": "Response Apollo ID"
+  },
+  {
+   "fieldname": "reference_doc",
+   "fieldtype": "Data",
+   "label": "Reference Doc"
+  },
+  {
+   "fieldname": "reference_docname",
+   "fieldtype": "Data",
+   "label": "Reference Docname"
   }
  ],
  "istable": 1,

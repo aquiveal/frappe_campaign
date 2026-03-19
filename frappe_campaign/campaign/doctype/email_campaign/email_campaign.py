@@ -21,6 +21,9 @@ class EmailCampaign(Document):
 			if getdate(self.start_date) < getdate(today()):
 				frappe.throw(_("Start Date cannot be before the current date"))
 
+		if self.status in ["Completed", "Unsubscribed"]:
+			return
+
 		# set the end date as start date + max(send after days) in campaign schedule
 		campaign = frappe.get_cached_doc("Campaign", self.campaign_name)
 		send_after_days = [entry.send_after_days for entry in campaign.get("campaign_schedules")]
@@ -31,6 +34,14 @@ class EmailCampaign(Document):
 			)
 
 		self.end_date = add_days(getdate(self.start_date), max(send_after_days))
+
+	def before_save(self):
+		if self.has_value_changed("status"):
+			if self.status == "In Progress":
+				self.start_date = today()
+				self.set_date()
+			elif self.status in ["Completed", "Unsubscribed"]:
+				self.end_date = today()
 
 	def validate_lead(self):
 		lead_email_id = frappe.db.get_value("CRM Lead", self.recipient, "email")
@@ -63,7 +74,9 @@ class EmailCampaign(Document):
 				"email_template": entry.email_template,
 				"send_after_days": entry.send_after_days,
 				"subject_apollo_id": entry.subject_apollo_id,
-				"response_apollo_id": entry.response_apollo_id
+				"response_apollo_id": entry.response_apollo_id,
+				"reference_doc": entry.reference_doc,
+				"reference_docname": entry.reference_docname
 			})
 		
 		# We must save after appending
@@ -110,7 +123,10 @@ class EmailCampaign(Document):
 # called from hooks on doc_event Email Unsubscribe
 def unsubscribe_recipient(unsubscribe, method):
 	if unsubscribe.reference_doctype == "Email Campaign":
-		frappe.db.set_value("Email Campaign", unsubscribe.reference_name, "status", "Unsubscribed")
+		frappe.db.set_value("Email Campaign", unsubscribe.reference_name, {
+			"status": "Unsubscribed",
+			"end_date": today()
+		})
 
 def requeue_timed_out_generations():
 	# Sweeper Job to re-queue campaigns stuck in Generating state (status = '') for more than 60 minutes

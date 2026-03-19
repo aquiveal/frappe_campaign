@@ -57,20 +57,21 @@ class Campaign(Document):
 				"subject_apollo_id": row.subject_apollo_id,
 				"response_apollo_id": row.response_apollo_id
 			}
-			
+
 		for ec_name in email_campaigns:
 			ec = frappe.get_doc("Email Campaign", ec_name)
 			dirty = False
 			
 			for ec_row in ec.get("campaign_email_schedules"):
 				if ec_row.email_template in template_map:
-					data = template_map[ec_row.email_template]
-					if ec_row.subject_apollo_id != data["subject_apollo_id"]:
-						ec_row.subject_apollo_id = data["subject_apollo_id"]
-						dirty = True
-					if ec_row.response_apollo_id != data["response_apollo_id"]:
-						ec_row.response_apollo_id = data["response_apollo_id"]
-						dirty = True
+					if not ec_row.reference_docname:
+						data = template_map[ec_row.email_template]
+						if ec_row.subject_apollo_id != data["subject_apollo_id"]:
+							ec_row.subject_apollo_id = data["subject_apollo_id"]
+							dirty = True
+						if ec_row.response_apollo_id != data["response_apollo_id"]:
+							ec_row.response_apollo_id = data["response_apollo_id"]
+							dirty = True
 			
 			if dirty:
 				ec.save(ignore_permissions=True)
